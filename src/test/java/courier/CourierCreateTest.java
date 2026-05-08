@@ -1,13 +1,16 @@
 package courier;
 
+import io.qameta.allure.Description;
 import io.qameta.allure.junit4.DisplayName;
 import models.Courier;
 import models.CourierCredentials;
+import org.apache.http.HttpStatus;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import utils.DataGenerator;
-import static org.hamcrest.Matchers.*;
+
+import static org.hamcrest.Matchers.equalTo;
 
 public class CourierCreateTest {
     private CourierClient courierClient;
@@ -26,6 +29,13 @@ public class CourierCreateTest {
 
     @After
     public void tearDown() {
+        if (courier.getLogin() != null && courier.getPassword() != null) {
+            var loginResp = courierClient.loginCourier(
+                    new CourierCredentials(courier.getLogin(), courier.getPassword()));
+            if (loginResp.statusCode() == HttpStatus.SC_OK) {
+                courierId = loginResp.then().extract().path("id");
+            }
+        }
         if (courierId > 0) {
             courierClient.deleteCourier(courierId);
         }
@@ -33,60 +43,52 @@ public class CourierCreateTest {
 
     @Test
     @DisplayName("Создание курьера - успешный сценарий")
-    public void createCourierSuccess() {
+    @Description("Проверяем, что курьера можно создать, ответ содержит ok: true и статус 201")
+    public void createCourierSuccessTest() {
         var response = courierClient.createCourier(courier);
         response.then()
-                .statusCode(201)
+                .statusCode(HttpStatus.SC_CREATED)
                 .body("ok", equalTo(true));
-
-        // После создания получаем id для удаления
-        var loginResponse = courierClient.loginCourier(
-                new CourierCredentials(courier.getLogin(), courier.getPassword()));
-        courierId = loginResponse.then().extract().path("id");
     }
 
     @Test
     @DisplayName("Нельзя создать двух одинаковых курьеров")
-    public void createDuplicatedCourier() {
-        courierClient.createCourier(courier).then().statusCode(201);
+    @Description("Проверяем, что при попытке создать курьера с уже существующим логином возвращается 409 и сообщение об ошибке")
+    public void createDuplicatedCourierTest() {
+        courierClient.createCourier(courier).then().statusCode(HttpStatus.SC_CREATED);
         var response = courierClient.createCourier(courier);
         response.then()
-                .statusCode(409)
+                .statusCode(HttpStatus.SC_CONFLICT)
                 .body("message", equalTo("Этот логин уже используется. Попробуйте другой."));
-        // Получим id для удаления после теста
-        var loginResponse = courierClient.loginCourier(
-                new CourierCredentials(courier.getLogin(), courier.getPassword()));
-        courierId = loginResponse.then().extract().path("id");
     }
 
     @Test
     @DisplayName("Ошибка при отсутствии обязательного поля (логин)")
-    public void createCourierWithoutLogin() {
+    @Description("Проверяем, что при создании курьера без логина возвращается 400 и сообщение об ошибке")
+    public void createCourierWithoutLoginTest() {
         courier.setLogin(null);
         var response = courierClient.createCourier(courier);
         response.then()
-                .statusCode(400)
+                .statusCode(HttpStatus.SC_BAD_REQUEST)
                 .body("message", equalTo("Недостаточно данных для создания учетной записи"));
     }
 
     @Test
     @DisplayName("Ошибка при отсутствии пароля")
-    public void createCourierWithoutPassword() {
+    @Description("Проверяем, что при создании курьера без пароля возвращается 400 и сообщение об ошибке")
+    public void createCourierWithoutPasswordTest() {
         courier.setPassword(null);
         var response = courierClient.createCourier(courier);
         response.then()
-                .statusCode(400)
+                .statusCode(HttpStatus.SC_BAD_REQUEST)
                 .body("message", equalTo("Недостаточно данных для создания учетной записи"));
     }
 
     @Test
     @DisplayName("Успешный запрос возвращает ok: true")
-    public void createCourierReturnsOkTrue() {
+    @Description("Проверяем, что тело успешного ответа содержит ok: true")
+    public void createCourierReturnsOkTrueTest() {
         var response = courierClient.createCourier(courier);
         response.then().body("ok", equalTo(true));
-        // Получим id для удаления
-        var loginResponse = courierClient.loginCourier(
-                new CourierCredentials(courier.getLogin(), courier.getPassword()));
-        courierId = loginResponse.then().extract().path("id");
     }
 }

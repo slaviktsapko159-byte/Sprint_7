@@ -19,7 +19,6 @@ public class DataGenerator {
         return "Имя" + random.nextInt(9999);
     }
 
-    // Для заказов
     public static Order getOrderWithColor(List<String> color) {
         return new Order(
                 "Алексей",
